@@ -119,7 +119,6 @@ class ValidationController {
             }
         } catch (err) {
             // Maybe display error here
-            console.log(err) // TODO remove
             next(new HttpException(500, "Couldn't validate bank statements. Bad input formatting?"))
         }
 
