@@ -67,46 +67,34 @@ class ValidationController {
                     resolve(reasons)
                     return
                 }
-                
-                // We need a baseline balance at start to know whether balances from following inspection points seem correct from the transactions that follow
-                // We take as first baseline balance the date of the first inspection point before the first transaction that we can have a baseline for
-                for (var inspectionStartIndex = 0;
-                    inspectionStartIndex < inspectionPoints.length - 1 &&
-                    new Date(inspectionPoints[inspectionStartIndex].date).getTime() < new Date(transactions[0].date).getTime();
-                    inspectionStartIndex++);
-                // in the case all transactions happen after the last inspection point, we suppose they are valid as we cannot know until next period
-                if (new Date(inspectionPoints[inspectionStartIndex].date).getTime() < new Date(transactions[0].date).getTime()) {
-                    resolve(reasons)
-                    return
-                }
-                // we come back one index to be on the inspection point just before our first analysable transaction
-                inspectionStartIndex--
 
                 // We then analyse if we obtain the correct balance with the given transactions per period between inspection points
+                // We start with a baseline balance from the first statement then continue over each period
                 let i = 0
-                let currentBalance = inspectionPoints[inspectionStartIndex].balance
-                while (inspectionStartIndex < inspectionPoints.length - 1) {
+                let inspectionIndex = 0
+                let currentBalance = inspectionPoints[inspectionIndex].balance
+                while (inspectionIndex < inspectionPoints.length - 1) {
                     while (i < transactions.length &&
-                        new Date(transactions[i].date).getTime() <= new Date(inspectionPoints[inspectionStartIndex + 1].date).getTime()) {
+                        new Date(transactions[i].date).getTime() <= new Date(inspectionPoints[inspectionIndex + 1].date).getTime()) {
                         currentBalance += transactions[i].amount
                         i++;
                     }
                     // Upon completing analysis of transactions within a period, move to next period and set the balance to expected number for next period analysis
-                    inspectionStartIndex++
+                    inspectionIndex++
                     // After adding transactions together for current period, check if there is a discrepancy
                     // If so, add to reason list
-                    if (currentBalance != inspectionPoints[inspectionStartIndex].balance) {
+                    if (currentBalance != inspectionPoints[inspectionIndex].balance) {
                         const reason = {
                             "problemType": "Balance discrepency: likely missing transactions",
-                            "periodStart": inspectionPoints[inspectionStartIndex - 1].date,
-                            "periodEnd": inspectionPoints[inspectionStartIndex].date,
-                            "amountStart": inspectionPoints[inspectionStartIndex - 1].balance,
+                            "periodStart": inspectionPoints[inspectionIndex - 1].date,
+                            "periodEnd": inspectionPoints[inspectionIndex].date,
+                            "amountStart": inspectionPoints[inspectionIndex - 1].balance,
                             "amountEndFound": currentBalance,
-                            "amountEndExpected": inspectionPoints[inspectionStartIndex].balance,
+                            "amountEndExpected": inspectionPoints[inspectionIndex].balance,
                             "actionRequired": "Look for missing transactions"
                         }
                         reasons.push(reason)
-                        currentBalance = inspectionPoints[inspectionStartIndex].balance
+                        currentBalance = inspectionPoints[inspectionIndex].balance
                     }
                 }
 

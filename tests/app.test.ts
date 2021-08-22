@@ -53,7 +53,32 @@ describe('server', function () {
 
 
     // Likely not a case that would be seen in real circumstances
-    it('says Accepted when dates are not relevant and there seems to be no problem', function (done) {
+    it('handles irrelevant transactions before first inspection point and there seems to be no problem', function (done) {
+        const data = {
+            "movements": [
+                {"id": 100, "date": "2011-02-05T12:00:00", "label": "loyer", "amount": -700}, 
+                {"id": 101, "date": "2011-02-15T12:00:00", "label": "revenu mi mois", "amount": 1000}, 
+                {"id": 102, "date": "2011-02-17T12:00:00", "label": "shopping", "amount": -800},
+                {"id": 103, "date": "2011-02-28T12:00:00", "label": "revenu fin mois", "amount": 1000}, 
+            ],
+            "balances": [
+                {"date": "2010-02-01T12:00:00", "balance": 1000},
+                {"date": "2010-03-01T12:00:00", "balance": 1000}
+            ]
+        }
+
+        request(app.app)
+            .post('/movements/validation')
+            .set('Content-Type', 'application/json')
+            .send(data)
+            .expect(202, function (err, res) {
+                if (err) { return done(err); }
+                // Done
+                done();
+            });
+    })
+
+    it('handles irrelevant transactions before first inspection point and detects discrepancy', function (done) {
         const data = {
             "movements": [
                 {"id": 100, "date": "2011-02-05T12:00:00", "label": "loyer", "amount": -700}, 
@@ -66,13 +91,28 @@ describe('server', function () {
                 {"date": "2010-03-01T12:00:00", "balance": 1500}
             ]
         }
+        let expectedResponse = {
+            message: "I'm a teapot",
+            reasons: [
+              {
+                problemType: 'Balance discrepency: likely missing transactions',
+                periodStart: '2010-02-01T12:00:00',
+                periodEnd: '2010-03-01T12:00:00',
+                amountStart: 1000,
+                amountEndFound: 1000,
+                amountEndExpected: 1500,
+                actionRequired: 'Look for missing transactions'
+              }
+            ]
+        }
 
         request(app.app)
             .post('/movements/validation')
             .set('Content-Type', 'application/json')
             .send(data)
-            .expect(202, function (err, res) {
+            .expect(418, function (err, res) {
                 if (err) { return done(err); }
+                expect(res.body).to.deep.equal(expectedResponse);
                 // Done
                 done();
             });
@@ -358,6 +398,15 @@ describe('server', function () {
               },
               {
                 problemType: 'Balance discrepency: likely missing transactions',
+                periodStart: '2010-01-01T12:00:00',
+                periodEnd: '2010-02-01T12:00:00',
+                amountStart: 800,
+                amountEndFound: 800,
+                amountEndExpected: 1000,
+                actionRequired: 'Look for missing transactions'
+              },
+              {
+                problemType: 'Balance discrepency: likely missing transactions',
                 periodStart: '2010-02-01T12:00:00',
                 periodEnd: '2010-03-01T12:00:00',
                 amountStart: 1000,
@@ -382,7 +431,6 @@ describe('server', function () {
             .set('Content-Type', 'application/json')
             .send(data)
             .expect(418, function (err, res) {
-                console.log(res.body)
                 if (err) { return done(err); }
                 expect(res.body).to.deep.equal(expectedResponse);
                 // Done
